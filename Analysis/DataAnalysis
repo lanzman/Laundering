@@ -1,0 +1,26 @@
+import os
+import numpy as np
+import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+#matplotlib.style.use('ggplot')
+
+import seaborn as sns
+
+#Sets directory to pull in all of data from
+directory = "I:\My Documents\Data Science\Monetate\Data Files"
+os.chdir(directory)
+
+# Pulls in data for analysis as .xlsx
+file_descriptions = pd.ExcelFile('file_descriptions.xlsx')
+purchase_descriptions=file_descriptions.parse(0)
+techno_geo_descriptions=file_descriptions.parse(1)
+sessions_descriptions=file_descriptions.parse(2)
+
+
+# Pulls in all data for analysis as .csv
+purchase_lines_000 = pd.read_csv('purchase_lines_000', header = None, names=purchase_descriptions.FIELD)
+sessions_000 = pd.read_csv('sessions_000', header=None, names=sessions_descriptions.FIELD)
+techno_geo_000 = pd.read_csv('techno_geo_000', header=None, names=techno_geo_descriptions.FIELD)
+
+
