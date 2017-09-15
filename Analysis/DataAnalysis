@@ -4,23 +4,66 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 #matplotlib.style.use('ggplot')
-
 import seaborn as sns
 
 #Sets directory to pull in all of data from
-directory = "I:\My Documents\Data Science\Monetate\Data Files"
+directory = "I:\My Documents\Data Science\Laundering\Data Files"
 os.chdir(directory)
 
-# Pulls in data for analysis as .xlsx
-file_descriptions = pd.ExcelFile('file_descriptions.xlsx')
-purchase_descriptions=file_descriptions.parse(0)
-techno_geo_descriptions=file_descriptions.parse(1)
-sessions_descriptions=file_descriptions.parse(2)
-
-
 # Pulls in all data for analysis as .csv
-purchase_lines_000 = pd.read_csv('purchase_lines_000', header = None, names=purchase_descriptions.FIELD)
-sessions_000 = pd.read_csv('sessions_000', header=None, names=sessions_descriptions.FIELD)
-techno_geo_000 = pd.read_csv('techno_geo_000', header=None, names=techno_geo_descriptions.FIELD)
+transactions = pd.read_csv('transactions.csv', sep= '|')
+
+#2006-02-29 is not a real date so it has been changed to 2006-03-01
+transactions.loc[transactions.TIMESTAMP == '2006-02-29', 'TIMESTAMP'] = '2006-03-01'
+
+#the TIMESTAMP column is converted into a datetime type for manipulation later
+transactions.TIMESTAMP = pd.to_datetime(transactions.TIMESTAMP, format="%Y-%m-%d")
+
+#This section is to reduce the total number of records being looked at from the start
+
+#Find the potentialC parties
+#Only the C party will send AND receive money
+unique_senders = pd.DataFrame(transactions.SENDER.unique())
+unique_recievers = pd.DataFrame(transactions.RECEIVER.unique())
+
+#using the unique_recievers and unique_senders find the customers in both dataframes to find potential middlemen
+potentialC = pd.merge(unique_senders,unique_recievers).rename(columns = {0:'MiddleID'})
+
+#reduce sender dataset using potentialC as recievers
+sender_A = transactions[transactions.RECEIVER.isin(potentialC.MiddleID)]
+
+#reduce receiver dataset using potentialC as senders
+reciever_B = transactions[transactions.SENDER.isin(potentialC.MiddleID)]
+
+#create smaller subsets for testing logic
+#sendertest= sender_A[0:10000]
+#recievertest = reciever_B[0:10000]
+
+#merge the sender_A on the reciever ID with reciever_B on the sender ID
+#drop one of these ID's
+#rename to remaining ID to MIDDLE_C because this will potentially be the MiddleMan in the operation
+mergetest = pd.merge(sender_A, reciever_B, left_on='RECEIVER', right_on='SENDER', suffixes=('_A','_B'))\
+            .drop('SENDER_B', 1)\
+            .rename(columns={'RECEIVER_A':'MIDDLE_C'})
+
+#filter out records based on the following criteria
+#SENDER_A and MIDDLE_C are not equal along with MIDDLE_C and RECEIVER_B ie: not trasferring money to themselves
+#the transaction is occuring on the same day
+#the follow-up transaction amount
+mergetest = mergetest[(mergetest.SENDER_A != mergetest.MIDDLE_C) & \
+             (mergetest.MIDDLE_C != mergetest.RECEIVER_B) &\
+             ((mergetest.TIMESTAMP_B - mergetest.TIMESTAMP_A) == '0 days') & \
+             (mergetest.AMOUNT_B <= mergetest.AMOUNT_A)]
+
+#Finds the PERCENT_CUT taken out of the follow-up transaction
+mergetest['PERCENT_CUT'] = ((mergetest.AMOUNT_A-mergetest.AMOUNT_B)/mergetest.AMOUNT_A) * 100
+
+#Filters out all PERCENT_CUT > 10%
+mergetest = mergetest[mergetest.PERCENT_CUT <= 10]
+
+
+mergetest.TIMESTAMP_B - mergetest.TIMESTAMP_A
+
+mergetest = pd.merge(sender_A, reciever_B, left_on='RECEIVER', right_on='SENDER')
 
 
