@@ -103,3 +103,4 @@ ENV/
 # datafiles
 transactions.csv
 transactions.zip
+Laundering.db
